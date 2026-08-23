@@ -10,7 +10,6 @@ PORT = int(os.environ.get("PORT", 10000))
 # ==========================================
 TELEGRAM_TOKEN = "8342175799:AAEVDjSw0jvYcsUxUjfx9DUKTI75iW9FVK4"
 
-# База данных пользователей
 USERS_DB = {}
 
 class DetectiveServer(http.server.SimpleHTTPRequestHandler):
@@ -59,52 +58,145 @@ class DetectiveServer(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
 
 # ==========================================
-# 🎨 ФРОНТЕНД MINI APP (ПОЛНЫЙ GDD КОМПЛЕКТ)
+# 🎨 ПОЛНЫЙ ФРОНТЕНД ИГРЫ (ROOM ESCAPE STYLE)
 # ==========================================
 MINI_APP_HTML = """<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Кто лжет? - Детективный триллер</title>
+    <title>Кто лжет? - Детективный квест</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #0f1115;
-            --card-bg: #181c24;
+            --bg-room: #090b0e;
+            --card-bg: #141820;
             --accent: #d97706;
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
-            --border: #2a303c;
+            --border: #222733;
             --danger: #ef4444;
+            --glow: rgba(217, 119, 6, 0.5);
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
+            background-color: var(--bg-room);
             color: var(--text-main);
             margin: 0;
-            padding: 12px;
+            padding: 10px;
+            user-select: none;
         }
-        .header {
+        /* Верхняя панель */
+        .top-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: var(--card-bg);
-            padding: 10px 14px;
-            border-radius: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
             border: 1px solid var(--border);
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
-        .energy-bar { font-size: 14px; font-weight: bold; color: var(--accent); }
+        .menu-btn {
+            background: #1e2430;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .energy-val { font-weight: bold; color: var(--accent); font-size: 13px; }
+
+        /* Выпадающее меню шторка */
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            right: 10px;
+            background: #181d28;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 8px;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .dropdown-menu.open { display: block; }
+        .menu-item {
+            padding: 10px;
+            background: #1f2533;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+        .menu-item:hover { border-color: var(--accent); }
+
+        /* Экраны */
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* Квестовая комната (Room Escape) */
+        .room-viewport {
+            position: relative;
+            width: 100%;
+            height: 340px;
+            background: radial-gradient(circle, #1a202c 0%, #080a0f 100%);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .room-title-overlay {
+            position: absolute;
+            top: 10px;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+        }
+        /* Интерактивные точки улик */
+        .hotspot {
+            position: absolute;
+            background: rgba(217, 119, 6, 0.25);
+            border: 2px dashed var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 var(--glow); }
+            70% { box-shadow: 0 0 0 12px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+        }
+
+        /* Панель диалогов и мыслей в стиле новелл */
+        .dialogue-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            min-height: 55px;
+        }
+        .dialogue-title { font-size: 11px; color: var(--accent); font-weight: bold; margin-bottom: 3px; text-transform: uppercase; }
+        .dialogue-text { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.35; }
+
+        /* Общие карточки */
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
         }
-        h2 { margin-top: 0; font-size: 16px; color: var(--accent); }
-        p { font-size: 13px; color: var(--text-muted); line-height: 1.4; margin: 8px 0; }
+        h2 { margin-top: 0; font-size: 15px; color: var(--accent); }
         .btn {
             background: var(--accent);
             color: white;
@@ -112,69 +204,82 @@ MINI_APP_HTML = """<!DOCTYPE html>
             width: 100%;
             padding: 10px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             cursor: pointer;
             margin-top: 8px;
         }
         .btn-secondary { background: #374151; }
         .btn-danger { background: var(--danger); }
-        .version { font-size: 10px; color: var(--text-muted); cursor: pointer; text-align: center; margin-top: 10px; user-select: none; }
-        #secret-panel { display: none; margin-top: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px dashed var(--accent); }
-        input { width: calc(100% - 16px); padding: 8px; background: #222; border: 1px solid var(--border); color: white; border-radius: 6px; margin-top: 5px; }
-        .screen { display: none; }
-        .screen.active { display: block; }
-        .location-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        .loc-btn { background: #222; border: 1px solid var(--border); color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; text-align: left; }
-        .notebook-item { background: #111; padding: 8px; border-radius: 6px; border-left: 3px solid var(--accent); margin-bottom: 6px; font-size: 12px; }
-        .suspect-box { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px; border-radius: 6px; margin-bottom: 6px; }
+        
+        .suspect-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1f2533;
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+        }
+        .notebook-item {
+            background: #191f2b;
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .version { font-size: 9px; color: var(--text-muted); text-align: center; margin-top: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <!-- Шапка -->
-    <div class="header">
-        <div><strong>🕵️‍♂️ Департамент</strong></div>
-        <div><span class="energy-bar" id="energy-display">⚡ 100/100</span></div>
+    <div class="top-bar">
+        <button class="menu-btn" onclick="toggleMenu()">📂 Меню дела ▾</button>
+        <span class="energy-val" id="energy-display">⚡ 100/100</span>
     </div>
 
-    <!-- ЭКРАН 1: ОНБОРДИНГ -->
-    <div id="screen-onboarding" class="screen active">
-        <div class="card">
-            <h2>📜 РАПОРТ О НАЗНАЧЕНИИ</h2>
-            <p>Вы зачислены в штат. Первое расследование проходит под кураторством дежурной части. Материалы дела переданы в оперативный терминал.</p>
-            <button class="btn" onclick="switchScreen('screen-terminal')">Открыть оперативный терминал</button>
-        </div>
-        <div class="version" onclick="handleVersionClick()">Версия 1.0.0 (Build 100)</div>
-        <div id="secret-panel">
-            <p style="margin: 0; color: var(--accent);">Режим разработчика</p>
-            <input type="text" id="promo-input" placeholder="Введите промокод...">
-            <button class="btn" style="padding: 6px;" onclick="applyPromo()">Активировать</button>
-        </div>
+    <!-- Выпадающее меню (Маленькая кнопка) -->
+    <div id="dropdown-menu" class="dropdown-menu">
+        <div class="menu-item" onclick="switchScreen('screen-crime-scene')">📍 1. Место преступления (Осмотр)</div>
+        <div class="menu-item" onclick="switchScreen('screen-station')">🏛️ 2. Участок (Доска и Допрос)</div>
+        <div class="menu-item" onclick="switchScreen('screen-lab')">🔬 3. Лаборатория (Эксперт)</div>
+        <div class="menu-item" onclick="switchScreen('screen-notebook')">📓 Блокнот следователя</div>
     </div>
 
-    <!-- ЭКРАН 2: ТЕРМИНАЛ -->
-    <div id="screen-terminal" class="screen">
-        <div class="card">
-            <h2>📁 Дело №1: «Ночной визит»</h2>
-            <p>Исследуйте локации, опрашивайте свидетелей и собирайте улики.</p>
-            <div class="location-grid">
-                <button class="loc-btn" onclick="openLocation('Место преступления', 'Входная дверь взломана изнутри. На полу обнаружен странный след обуви.')">📍 Место преступления</button>
-                <button class="loc-btn" onclick="openLocation('Офис компании', 'Свидетель путается в показаниях относительно времени своего прихода.')">📍 Офис компании</button>
-                <button class="loc-btn" onclick="switchScreen('screen-lab')">🔬 Лаборатория</button>
-                <button class="loc-btn" onclick="openNotebook()">📓 Блокнот улик</button>
-            </div>
-            <button class="btn btn-danger" style="margin-top: 12px;" onclick="switchScreen('screen-court')">⚖️ Допросная и Суд</button>
+    <!-- ЭКРАН 1: МЕСТО ПРЕСТУПЛЕНИЯ (Spotlight Style) -->
+    <div id="screen-crime-scene" class="screen active">
+        <div class="room-viewport">
+            <div class="room-title-overlay">Дело №1 • Спальня</div>
+            <!-- Интерактивные точки поиска улик -->
+            <div class="hotspot" style="width: 45px; height: 45px; top: 55%; left: 25%;" onclick="inspectHotspot('Осколки вазы', 'На полу валяются осколки дорогой вазы. На них обнаружены следы крови.')"></div>
+            <div class="hotspot" style="width: 40px; height: 40px; top: 30%; left: 65%;" onclick="inspectHotspot('Сейф', 'Сейф в стене открыт изнутри. Все ценности на месте, кроме компрометирующих документов.')"></div>
+        </div>
+        <div class="dialogue-box">
+            <div class="dialogue-title">Мысли детектива</div>
+            <p class="dialogue-text" id="room-thoughts">Осмотрите комнату глазами сыщика. Нажмите на светящиеся зоны, чтобы собрать улики.</p>
         </div>
     </div>
 
-    <!-- ЭКРАН 3: ЛОКАЦИЯ -->
-    <div id="screen-location" class="screen">
+    <!-- ЭКРАН 2: УЧАСТОК (ДОСКА И ДОПРОСНАЯ) -->
+    <div id="screen-station" class="screen">
         <div class="card">
-            <h2 id="loc-title">Локация</h2>
-            <p id="loc-desc">Описание...</p>
-            <button class="btn" onclick="interrogate()">Опросить персонажа (-10 ⚡)</button>
-            <button class="btn btn-secondary" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
+            <h2>🏛️ Оперативный штаб</h2>
+            <p style="font-size:12px; color:var(--text-muted);">Сопоставляйте улики на доске или вызывайте подозреваемых на допрос.</p>
+            <button class="btn" onclick="alert('Криминальная доска: связи между подозреваемыми и уликами установлены.')">📌 Открыть криминальную доску</button>
+            <button class="btn btn-danger" style="margin-top: 8px;" onclick="switchScreen('screen-court')">⚖️ Провести арест и суд</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 3: ЛАБОРАТОРИЯ -->
+    <div id="screen-lab" class="screen">
+        <div class="card">
+            <h2>🔬 Лаборатория судмедэксперта</h2>
+            <p style="font-size:12px; color:var(--text-muted);">Здесь эксперт анализирует улики и выдает скрытые мысли-подсказки (💭).</p>
+            <button class="btn" onclick="getLabHint()">Запросить экспертизу улик (-15 ⚡)</button>
         </div>
     </div>
 
@@ -182,36 +287,32 @@ MINI_APP_HTML = """<!DOCTYPE html>
     <div id="screen-notebook" class="screen">
         <div class="card">
             <h2>📓 Блокнот следователя</h2>
-            <div id="notes-container"><p>Блокнот пуст.</p></div>
-            <button class="btn btn-secondary" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
+            <div id="notes-container"><p style="font-size:12px; color:var(--text-muted);">Блокнот пуст. Осмотрите место преступления.</p></div>
+            <button class="btn btn-secondary" onclick="switchScreen('screen-crime-scene')">Вернуться к делу</button>
         </div>
     </div>
 
-    <!-- ЭКРАН 5: ЛАБОРАТОРИЯ -->
-    <div id="screen-lab" class="screen">
-        <div class="card">
-            <h2>🔬 Лаборатория</h2>
-            <p>Анализ улик и экспертные мысли (💭).</p>
-            <button class="btn" onclick="getLabHint()">Запросить экспертизу (-15 ⚡)</button>
-            <button class="btn btn-secondary" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
-        </div>
-    </div>
-
-    <!-- ЭКРАН 6: ДОПРОСНАЯ И СУД -->
+    <!-- ЭКРАН 5: СУД И ДОПРОСНАЯ -->
     <div id="screen-court" class="screen">
         <div class="card">
             <h2>⚖️ Допросная и Суд</h2>
-            <p>Выберите подозреваемого для ареста. Ошибка приведет к иску адвокатов и выговору!</p>
-            <div class="suspect-box">
-                <span>Подозрительный коллега (Боб)</span>
-                <button class="btn" style="width: auto; padding: 6px 12px;" onclick="arrest('Боб')">Арестовать</button>
+            <p style="font-size:12px; color:var(--text-muted);">Выберите подозреваемого. Ошибка в суде приведет к иску адвокатов и выговору!</p>
+            <div class="suspect-row">
+                <span>Боб (Коллега)</span>
+                <button class="btn" style="width: auto; padding: 6px 12px; margin:0;" onclick="arrest('Боб')">Арестовать</button>
             </div>
-            <div class="suspect-box">
-                <span>Охранник (Чарли)</span>
-                <button class="btn" style="width: auto; padding: 6px 12px;" onclick="arrest('Чарли')">Арестовать</button>
+            <div class="suspect-row">
+                <span>Чарли (Охранник)</span>
+                <button class="btn" style="width: auto; padding: 6px 12px; margin:0;" onclick="arrest('Чарли')">Арестовать</button>
             </div>
-            <button class="btn btn-secondary" style="margin-top: 10px;" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
+            <button class="btn btn-secondary" style="margin-top: 10px;" onclick="switchScreen('screen-station')">Назад в штаб</button>
         </div>
+    </div>
+
+    <div class="version" onclick="handleVersionClick()">Версия 1.0.0 (Ultimate Escape Edition)</div>
+    <div id="secret-panel" style="display:none; text-align:center; margin-top:5px;">
+        <input type="text" id="promo" placeholder="Промокод..." style="padding:4px; width:130px; background:#111; color:#fff; border:1px solid var(--accent); border-radius:4px;">
+        <button onclick="applyPromo()" style="padding:4px; background:var(--accent); color:#fff; border:none; border-radius:4px;">OK</button>
     </div>
 
     <script>
@@ -238,64 +339,31 @@ MINI_APP_HTML = """<!DOCTYPE html>
             document.getElementById('energy-display').innerText = `⚡ ${userProfile.energy}/${userProfile.max_energy}`;
         }
 
-        let clickCount = 0;
-        function handleVersionClick() {
-            clickCount++;
-            if (clickCount >= 10) {
-                document.getElementById('secret-panel').style.display = 'block';
-                tg.HapticFeedback.notificationOccurred('success');
-            }
-        }
-
-        function applyPromo() {
-            let code = document.getElementById('promo-input').value;
-            if (code === "DEV_GOD") {
-                userProfile.energy = 999;
-                updateEnergyUI();
-                alert("VIP-доступ активирован! Энергия максимальна.");
-                document.getElementById('secret-panel').style.display = 'none';
-                tg.HapticFeedback.notificationOccurred('success');
-            } else {
-                alert("Неверный код");
-                tg.HapticFeedback.notificationOccurred('error');
-            }
+        function toggleMenu() {
+            document.getElementById('dropdown-menu').classList.toggle('open');
+            tg.HapticFeedback.impactOccurred('light');
         }
 
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
-            tg.HapticFeedback.impactOccurred('light');
+            document.getElementById('dropdown-menu').classList.remove('open');
+            tg.HapticFeedback.impactOccurred('medium');
         }
 
-        let currentEvidence = "";
-        function openLocation(title, desc) {
-            document.getElementById('loc-title').innerText = title;
-            document.getElementById('loc-desc').innerText = desc;
-            currentEvidence = `[${title}]: ${desc}`;
-            switchScreen('screen-location');
-        }
-
-        function interrogate() {
-            if(userProfile.energy < 10 && userProfile.energy !== 999) {
-                alert("Недостаточно энергии!");
-                return;
-            }
-            if(userProfile.energy !== 999) userProfile.energy -= 10;
-            updateEnergyUI();
-            userProfile.notes.push(currentEvidence);
-            alert("Персонаж опрошен. Улика добавлена в блокнот.");
+        function inspectHotspot(title, desc) {
             tg.HapticFeedback.notificationOccurred('success');
-            switchScreen('screen-terminal');
+            document.getElementById('room-thoughts').innerText = `Найдено [${title}]: ${desc}`;
+            let clue = `[${title}]: ${desc}`;
+            if(!userProfile.notes.includes(clue)) {
+                userProfile.notes.push(clue);
+                updateNotesUI();
+            }
         }
 
-        function openNotebook() {
+        function updateNotesUI() {
             let container = document.getElementById('notes-container');
-            if(userProfile.notes.length === 0) {
-                container.innerHTML = "<p>Блокнот пуст.</p>";
-            } else {
-                container.innerHTML = userProfile.notes.map(n => `<div class='notebook-item'>${n}</div>`).join('');
-            }
-            switchScreen('screen-notebook');
+            container.innerHTML = userProfile.notes.map(n => `<div class='notebook-item'>${n}</div>`).join('');
         }
 
         function getLabHint() {
@@ -303,22 +371,41 @@ MINI_APP_HTML = """<!DOCTYPE html>
                 alert("Недостаточно энергии!");
                 return;
             }
-            if(userProfile.energy !== 999) userProfile.energy !== 999 ? null : 0;
-            userProfile.energy -= (userProfile.energy === 999 ? 0 : 15);
+            if(userProfile.energy !== 999) userProfile.energy -= 15;
             updateEnergyUI();
-            alert("💭 Экспертиза: Взлом шел изнутри, настоящий преступник — Боб.");
+            alert("💭 Мысль судмедэксперта: Взломать сейф изнутри мог только тот, у кого был дубликат ключа Боба.");
             tg.HapticFeedback.notificationOccurred('success');
         }
 
         function arrest(suspect) {
             if(suspect === 'Боб') {
-                alert("🎉 Дело раскрыто! Суд признал подозреваемого виновным.");
+                alert("🎉 Дело раскрыто! Суд признал Боба виновным.");
                 tg.HapticFeedback.notificationOccurred('success');
             } else {
                 alert("❌ Ошибка! Адвокаты развалили дело в суде. Выговор в личное дело!");
                 tg.HapticFeedback.notificationOccurred('error');
             }
-            switchScreen('screen-terminal');
+            switchScreen('screen-crime-scene');
+        }
+
+        let clicks = 0;
+        function handleVersionClick() {
+            clicks++;
+            if(clicks >= 10) {
+                document.getElementById('secret-panel').style.display = 'block';
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        function applyPromo() {
+            if(document.getElementById('promo').value === "DEV_GOD") {
+                userProfile.energy = 999;
+                updateEnergyUI();
+                alert("Пасхалка активирована! Вечный безлимит энергии.");
+                document.getElementById('secret-panel').style.display = 'none';
+            } else {
+                alert("Неверный код");
+            }
         }
     </script>
 </body>
@@ -327,5 +414,5 @@ MINI_APP_HTML = """<!DOCTYPE html>
 
 if __name__ == "__main__":
     with socketserver.TCPServer(("", PORT), DetectiveServer) as httpd:
-        print(f"Final GDD Server running on port {PORT}")
+        print(f"Ultimate Game Server running on port {PORT}")
         httpd.serve_forever()
