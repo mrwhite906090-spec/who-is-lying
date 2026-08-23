@@ -10,7 +10,7 @@ PORT = int(os.environ.get("PORT", 10000))
 # ==========================================
 TELEGRAM_TOKEN = "8342175799:AAEVDjSw0jvYcsUxUjfx9DUKTI75iW9FVK4"
 
-# База данных пользователей (в памяти сервера)
+# База данных пользователей
 USERS_DB = {}
 
 class DetectiveServer(http.server.SimpleHTTPRequestHandler):
@@ -37,16 +37,13 @@ class DetectiveServer(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     return
 
-                # Инициализация игрока по GDD (энергия 100/100)
                 if tg_id not in USERS_DB:
                     USERS_DB[tg_id] = {
                         "energy": 100,
                         "max_energy": 100,
-                        "cases_solved": 0,
-                        "current_case": 1,
-                        "unlocked_locations": ["Кабинет", "Переулок", "Бар"],
                         "notes": [],
-                        "is_dev": False
+                        "reputation": "Безупречная",
+                        "cases_solved": 0
                     }
 
                 self.send_response(200)
@@ -62,14 +59,14 @@ class DetectiveServer(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
 
 # ==========================================
-# 🎨 ФРОНТЕНД MINI APP (Строго по GDD)
+# 🎨 ФРОНТЕНД MINI APP (ПОЛНЫЙ GDD КОМПЛЕКТ)
 # ==========================================
 MINI_APP_HTML = """<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Кто лжет? - Оперативный терминал</title>
+    <title>Кто лжет? - Детективный триллер</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -120,7 +117,8 @@ MINI_APP_HTML = """<!DOCTYPE html>
             cursor: pointer;
             margin-top: 8px;
         }
-        .btn-secondary { background: #374151; margin-top: 6px; }
+        .btn-secondary { background: #374151; }
+        .btn-danger { background: var(--danger); }
         .version { font-size: 10px; color: var(--text-muted); cursor: pointer; text-align: center; margin-top: 10px; user-select: none; }
         #secret-panel { display: none; margin-top: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px dashed var(--accent); }
         input { width: calc(100% - 16px); padding: 8px; background: #222; border: 1px solid var(--border); color: white; border-radius: 6px; margin-top: 5px; }
@@ -128,27 +126,26 @@ MINI_APP_HTML = """<!DOCTYPE html>
         .screen.active { display: block; }
         .location-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .loc-btn { background: #222; border: 1px solid var(--border); color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; text-align: left; }
-        .loc-btn.unvisited { border-color: var(--accent); }
+        .notebook-item { background: #111; padding: 8px; border-radius: 6px; border-left: 3px solid var(--accent); margin-bottom: 6px; font-size: 12px; }
+        .suspect-box { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px; border-radius: 6px; margin-bottom: 6px; }
     </style>
 </head>
 <body>
 
-    <!-- Шапка с энергией -->
+    <!-- Шапка -->
     <div class="header">
         <div><strong>🕵️‍♂️ Департамент</strong></div>
         <div><span class="energy-bar" id="energy-display">⚡ 100/100</span></div>
     </div>
 
-    <!-- ЭКРАН 1: ОНБОРДИНГ И РАПОРТ ШЕФА -->
+    <!-- ЭКРАН 1: ОНБОРДИНГ -->
     <div id="screen-onboarding" class="screen active">
         <div class="card">
             <h2>📜 РАПОРТ О НАЗНАЧЕНИИ</h2>
             <p>Вы зачислены в штат. Первое расследование проходит под кураторством дежурной части. Материалы дела переданы в оперативный терминал.</p>
-            <button class="btn" onclick="enterTerminal()">Открыть оперативный терминал</button>
+            <button class="btn" onclick="switchScreen('screen-terminal')">Открыть оперативный терминал</button>
         </div>
-        
-        <!-- Секретная пасхалка для тестеров (10 кликов по версии) -->
-        <div class="version" onclick="handleVersionClick()">Версия 1.0.0 (Build 77)</div>
+        <div class="version" onclick="handleVersionClick()">Версия 1.0.0 (Build 100)</div>
         <div id="secret-panel">
             <p style="margin: 0; color: var(--accent);">Режим разработчика</p>
             <input type="text" id="promo-input" placeholder="Введите промокод...">
@@ -156,28 +153,64 @@ MINI_APP_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- ЭКРАН 2: ОПЕРАТИВНЫЙ ТЕРМИНАЛ И ЛОКАЦИИ -->
+    <!-- ЭКРАН 2: ТЕРМИНАЛ -->
     <div id="screen-terminal" class="screen">
         <div class="card">
             <h2>📁 Дело №1: «Ночной визит»</h2>
-            <p>Статус: Расследование активно. Исследуйте локации, опрашивайте свидетелей и ищите улики.</p>
+            <p>Исследуйте локации, опрашивайте свидетелей и собирайте улики.</p>
             <div class="location-grid">
-                <button class="loc-btn unvisited" onclick="openLocation('Место преступления')">📍 Место преступления (Новое)</button>
-                <button class="loc-btn unvisited" onclick="openLocation('Офис компании')">📍 Офис компании (Новое)</button>
-                <button class="loc-btn" onclick="openLocation('Криминальная доска')">📌 Доска улик</button>
-                <button class="loc-btn" onclick="openLocation('Лаборатория')">🔬 Лаборатория</button>
+                <button class="loc-btn" onclick="openLocation('Место преступления', 'Входная дверь взломана изнутри. На полу обнаружен странный след обуви.')">📍 Место преступления</button>
+                <button class="loc-btn" onclick="openLocation('Офис компании', 'Свидетель путается в показаниях относительно времени своего прихода.')">📍 Офис компании</button>
+                <button class="loc-btn" onclick="switchScreen('screen-lab')">🔬 Лаборатория</button>
+                <button class="loc-btn" onclick="openNotebook()">📓 Блокнот улик</button>
             </div>
-            <button class="btn btn-secondary" onclick="openCourt()">Перейти к допросу и суду</button>
+            <button class="btn btn-danger" style="margin-top: 12px;" onclick="switchScreen('screen-court')">⚖️ Допросная и Суд</button>
         </div>
     </div>
 
-    <!-- ЭКРАН 3: ЛОКАЦИЯ / ДИАЛОГ -->
+    <!-- ЭКРАН 3: ЛОКАЦИЯ -->
     <div id="screen-location" class="screen">
         <div class="card">
             <h2 id="loc-title">Локация</h2>
-            <p id="loc-dialogue">Здесь находится свидетель. Вы можете опросить его.</p>
+            <p id="loc-desc">Описание...</p>
             <button class="btn" onclick="interrogate()">Опросить персонажа (-10 ⚡)</button>
-            <button class="btn btn-secondary" onclick="backToTerminal()">Назад в терминал</button>
+            <button class="btn btn-secondary" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 4: БЛОКНОТ -->
+    <div id="screen-notebook" class="screen">
+        <div class="card">
+            <h2>📓 Блокнот следователя</h2>
+            <div id="notes-container"><p>Блокнот пуст.</p></div>
+            <button class="btn btn-secondary" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 5: ЛАБОРАТОРИЯ -->
+    <div id="screen-lab" class="screen">
+        <div class="card">
+            <h2>🔬 Лаборатория</h2>
+            <p>Анализ улик и экспертные мысли (💭).</p>
+            <button class="btn" onclick="getLabHint()">Запросить экспертизу (-15 ⚡)</button>
+            <button class="btn btn-secondary" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 6: ДОПРОСНАЯ И СУД -->
+    <div id="screen-court" class="screen">
+        <div class="card">
+            <h2>⚖️ Допросная и Суд</h2>
+            <p>Выберите подозреваемого для ареста. Ошибка приведет к иску адвокатов и выговору!</p>
+            <div class="suspect-box">
+                <span>Подозрительный коллега (Боб)</span>
+                <button class="btn" style="width: auto; padding: 6px 12px;" onclick="arrest('Боб')">Арестовать</button>
+            </div>
+            <div class="suspect-box">
+                <span>Охранник (Чарли)</span>
+                <button class="btn" style="width: auto; padding: 6px 12px;" onclick="arrest('Чарли')">Арестовать</button>
+            </div>
+            <button class="btn btn-secondary" style="margin-top: 10px;" onclick="switchScreen('screen-terminal')">Назад в терминал</button>
         </div>
     </div>
 
@@ -186,9 +219,8 @@ MINI_APP_HTML = """<!DOCTYPE html>
         tg.expand();
 
         let userTgId = tg.initDataUnsafe?.user?.id || "test_user_999";
-        let userProfile = { energy: 100, max_energy: 100 };
+        let userProfile = { energy: 100, max_energy: 100, notes: [] };
 
-        // Синхронизация при старте
         fetch('/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -206,7 +238,6 @@ MINI_APP_HTML = """<!DOCTYPE html>
             document.getElementById('energy-display').innerText = `⚡ ${userProfile.energy}/${userProfile.max_energy}`;
         }
 
-        // Пасхалка (10 кликов)
         let clickCount = 0;
         function handleVersionClick() {
             clickCount++;
@@ -230,23 +261,18 @@ MINI_APP_HTML = """<!DOCTYPE html>
             }
         }
 
-        function enterTerminal() {
-            tg.HapticFeedback.impactOccurred('medium');
-            document.getElementById('screen-onboarding').classList.remove('active');
-            document.getElementById('screen-terminal').classList.add('active');
-        }
-
-        function openLocation(name) {
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
             tg.HapticFeedback.impactOccurred('light');
-            document.getElementById('loc-title').innerText = name;
-            document.getElementById('loc-dialogue').innerText = `Вы прибыли на локацию «${name}». Осмотритесь вокруг и найдите улики.`;
-            document.getElementById('screen-terminal').classList.remove('active');
-            document.getElementById('screen-location').classList.add('active');
         }
 
-        function backToTerminal() {
-            document.getElementById('screen-location').classList.remove('active');
-            document.getElementById('screen-terminal').classList.add('active');
+        let currentEvidence = "";
+        function openLocation(title, desc) {
+            document.getElementById('loc-title').innerText = title;
+            document.getElementById('loc-desc').innerText = desc;
+            currentEvidence = `[${title}]: ${desc}`;
+            switchScreen('screen-location');
         }
 
         function interrogate() {
@@ -256,12 +282,43 @@ MINI_APP_HTML = """<!DOCTYPE html>
             }
             if(userProfile.energy !== 999) userProfile.energy -= 10;
             updateEnergyUI();
+            userProfile.notes.push(currentEvidence);
+            alert("Персонаж опрошен. Улика добавлена в блокнот.");
             tg.HapticFeedback.notificationOccurred('success');
-            document.getElementById('loc-dialogue').innerText = "Свидетель опрошен! Статус изменен на «Опрошен». Улика записана в блокнот.";
+            switchScreen('screen-terminal');
         }
 
-        function openCourt() {
-            alert("Переход в допросную и суд. Требуется собрать все улики!");
+        function openNotebook() {
+            let container = document.getElementById('notes-container');
+            if(userProfile.notes.length === 0) {
+                container.innerHTML = "<p>Блокнот пуст.</p>";
+            } else {
+                container.innerHTML = userProfile.notes.map(n => `<div class='notebook-item'>${n}</div>`).join('');
+            }
+            switchScreen('screen-notebook');
+        }
+
+        function getLabHint() {
+            if(userProfile.energy < 15 && userProfile.energy !== 999) {
+                alert("Недостаточно энергии!");
+                return;
+            }
+            if(userProfile.energy !== 999) userProfile.energy !== 999 ? null : 0;
+            userProfile.energy -= (userProfile.energy === 999 ? 0 : 15);
+            updateEnergyUI();
+            alert("💭 Экспертиза: Взлом шел изнутри, настоящий преступник — Боб.");
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        function arrest(suspect) {
+            if(suspect === 'Боб') {
+                alert("🎉 Дело раскрыто! Суд признал подозреваемого виновным.");
+                tg.HapticFeedback.notificationOccurred('success');
+            } else {
+                alert("❌ Ошибка! Адвокаты развалили дело в суде. Выговор в личное дело!");
+                tg.HapticFeedback.notificationOccurred('error');
+            }
+            switchScreen('screen-terminal');
         }
     </script>
 </body>
@@ -270,5 +327,5 @@ MINI_APP_HTML = """<!DOCTYPE html>
 
 if __name__ == "__main__":
     with socketserver.TCPServer(("", PORT), DetectiveServer) as httpd:
-        print(f"GDD Server running on port {PORT}")
+        print(f"Final GDD Server running on port {PORT}")
         httpd.serve_forever()
